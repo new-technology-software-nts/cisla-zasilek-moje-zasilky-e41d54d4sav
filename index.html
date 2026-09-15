@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sledování zásilek</title>
+    <style>
+        /* CSS STYLY */
+        :root {
+            --primary-blue: #2563eb;
+            --primary-blue-hover: #1d4ed8;
+            --primary-green: #16a34a;
+            --primary-green-hover: #15803d;
+            --bg-color: #f3f4f6;
+            --card-bg: #ffffff;
+            --box-bg-green: #f0fdf4;
+            --text-main: #1f2937;
+            --text-muted: #6b7280;
+            --border-color: #e5e7eb;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            background-color: var(--card-bg);
+            width: 100%;
+            max-width: 600px;
+            border-radius: 12px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            padding: 30px;
+            height: fit-content;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            text-align: center;
+            margin-bottom: 15px;
+            color: var(--text-main);
+        }
+
+        hr {
+            border: 0;
+            height: 1px;
+            background-color: var(--border-color);
+            margin: 15px 0;
+        }
+
+        .description {
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            line-height: 1.5;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        label {
+            font-weight: 500;
+            font-size: 0.95rem;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: var(--primary-blue);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+        }
+
+        .action-area {
+            text-align: center;
+            min-height: 45px;
+        }
+
+        .status-text {
+            color: var(--text-muted);
+            font-style: italic;
+            line-height: 45px;
+        }
+
+        .btn-search {
+            background-color: var(--primary-green);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: background-color 0.3s;
+            display: none;
+        }
+
+        .btn-search:hover {
+            background-color: var(--primary-green-hover);
+        }
+
+        /* Výsledky hledání */
+        #results-container {
+            margin-top: 25px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .result-message {
+            font-weight: 500;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .courier-card {
+            background-color: var(--box-bg-green);
+            border: 1px solid #bbf7d0;
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .courier-logo {
+            max-width: 150px;
+            max-height: 60px;
+            object-fit: contain;
+        }
+
+        .btn-link {
+            background-color: var(--primary-blue);
+            color: white;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-weight: 500;
+            transition: background-color 0.3s;
+            width: 100%;
+            text-align: center;
+        }
+
+        .btn-link:hover {
+            background-color: var(--primary-blue-hover);
+        }
+
+        /* Responzivita */
+        @media (max-width: 480px) {
+            .container {
+                padding: 20px 15px;
+            }
+            h1 {
+                font-size: 1.25rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Vyhledat zásilku pomocí čísla zásilky</h1>
+        <hr>
+        <p class="description">Zadejte číslo zásilky. Zásilka bude vyhledána u přepravní společnosti, ke které číslo patří nebo budete přesměrováni na globální hledání zásilek.</p>
+        
+        <div class="input-group">
+            <label for="tracking-number">Zadejte číslo zásilky:</label>
+            <input type="text" id="tracking-number" placeholder="Např. Z1832489064" autocomplete="off">
+        </div>
+
+        <div class="action-area" id="action-area">
+            <div class="status-text" id="status-text">Začněte psát...</div>
+            <button class="btn-search" id="btn-search">Hledat číslo</button>
+        </div>
+
+        <div id="results-container"></div>
+    </div>
+
+    <script>
+        // JAVASCRIPT LOGIKA
+
+        // Šablony dopravců a jejich Regex pravidla
+        // Regex (regulární výrazy) používá /i pro case-insensitive (nezáleží na velkých/malých písmenech)
+        const couriers = [
+            {
+                id: "zasilkovna",
+                name: "Zásilkovna",
+                regex: /^Z\d{10}$/i, 
+                url: "https://tracking.packeta.com/cs/YYYYYYY",
+                img: "zasilkovna.svg"
+            },
+            {
+                id: "packeta",
+                name: "Packeta",
+                regex: /^\d{10}$/, 
+                url: "https://tracking.packeta.com/en/YYYYYYY",
+                img: "packeta.png"
+            },
+            {
+                id: "balikovna",
+                name: "Balíkovna",
+                regex: /^[A-Z]{2}\d{10}[A-Z]$/i, 
+                url: "https://www.balikovna.cz/cs/sledovat-balik/-/balik/YYYYYYY",
+                img: "balikovna.jpg"
+            },
+            {
+                id: "posta",
+                name: "Česká pošta",
+                regex: /^[A-Z]{2}\d{9}[A-Z]{2}$/i, 
+                url: "https://www.postaonline.cz/trackandtrace/-/zasilka/cislo?parcelNumbers=YYYYYYY",
+                img: "posta.png"
+            },
+            {
+                id: "dpd",
+                name: "DPD",
+                regex: /^\d{14}$/, 
+                url: "https://www.dpdgroup.com/cz/mydpd/my-parcels/incoming?parcelNumber=YYYYYYY",
+                img: "dpd.webp"
+            },
+            {
+                id: "ppl",
+                name: "PPL",
+                regex: /^\d{11}$/, 
+                url: "https://www.ppl.cz/vyhledat-zasilku?shipmentId=YYYYYYY",
+                img: "ppl.jpg"
+            },
+            {
+                id: "one_allegro",
+                name: "One by Allegro",
+                // Musí obsahovat aspoň 1 písmeno a 1 číslo, celkem přesně 10 znaků (pouze alfanumerické)
+                regex: /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{10}$/i, 
+                url: "https://onedelivery.cz/sledovani-zasilky?numer=YYYYYYY",
+                img: "one.svg"
+            }
+        ];
+
+        // Globální dopravce (vždy k dispozici)
+        const universalCourier = {
+            name: "ParcelsApp",
+            url: "https://parcelsapp.com/en/tracking/YYYYYYY",
+            img: "parcels.png"
+        };
+
+        // DOM Elementy
+        const inputElement = document.getElementById('tracking-number');
+        const statusText = document.getElementById('status-text');
+        const btnSearch = document.getElementById('btn-search');
+        const resultsContainer = document.getElementById('results-container');
+
+        // Událost: Při psaní do pole
+        inputElement.addEventListener('input', function() {
+            // Skrýt výsledky při nové úpravě
+            resultsContainer.innerHTML = '';
+            
+            if (this.value.trim() !== "") {
+                statusText.style.display = "none";
+                btnSearch.style.display = "block";
+            } else {
+                statusText.style.display = "block";
+                btnSearch.style.display = "none";
+            }
+        });
+
+        // Událost: Stisk enteru v poli
+        inputElement.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && this.value.trim() !== "") {
+                performSearch();
+            }
+        });
+
+        // Událost: Klik na tlačítko Hledat
+        btnSearch.addEventListener('click', performSearch);
+
+        // Hlavní vyhledávací funkce
+        function performSearch() {
+            // 1. Očištění vstupu (odstranění VŠECH mezer)
+            const rawValue = inputElement.value;
+            const cleanValue = rawValue.replace(/\s+/g, '');
+
+            if (cleanValue === "") return;
+
+            // 2. Porovnání se šablonami
+            const matchedCouriers = couriers.filter(courier => courier.regex.test(cleanValue));
+
+            // Vyčištění kontejneru před vypsáním
+            resultsContainer.innerHTML = '';
+
+            // B) Našla se PŘESNĚ JEDNA šablona
+            if (matchedCouriers.length === 1) {
+                const courier = matchedCouriers[0];
+                
+                // Přidání zprávy o nálezu
+                resultsContainer.innerHTML += `
+                    <p class="result-message">Zásilka byla nalezena v ${courier.name}:</p>
+                `;
+                
+                // Přidání rámečku dopravce
+                resultsContainer.appendChild(createCourierCard(courier, cleanValue));
+                
+                // Přidání dělící čáry a ParcelsApp
+                resultsContainer.innerHTML += `
+                    <hr>
+                    <p class="result-message">Nenašli jste zásilku? Hledejte v globálním sledování zásilek:</p>
+                `;
+                resultsContainer.appendChild(createCourierCard(universalCourier, cleanValue));
+            } 
+            // A) a C) Nenašla se žádná šablona NEBO se jich našlo více
+            else {
+                resultsContainer.innerHTML += `
+                    <p class="result-message">Číslo jsme nenašli obvyklým způsobem. Vyzkoušejte jej hledat v Universal Parcel Tracking - Global Package Tracking:</p>
+                `;
+                resultsContainer.appendChild(createCourierCard(universalCourier, cleanValue));
+            }
+        }
+
+        // Pomocná funkce pro vygenerování HTML rámečku s dopravcem
+        function createCourierCard(courierInfo, trackingNumber) {
+            const card = document.createElement('div');
+            card.className = 'courier-card';
+
+            const finalUrl = courierInfo.url.replace("YYYYYYY", trackingNumber);
+            
+            // Alt text navíc pomůže, pokud obrázek ve složce chybí
+            card.innerHTML = `
+                <img src="${courierInfo.img}" alt="Logo ${courierInfo.name}" class="courier-logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                <h3 style="display:none; text-align:center;">${courierInfo.name}</h3>
+                <a href="${finalUrl}" target="_blank" class="btn-link">Přejít k zásilce</a>
+            `;
+            
+            return card;
+        }
+    </script>
+</body>
+</html>
